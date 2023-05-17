@@ -30,7 +30,7 @@
 
 #include <stdatomic.h>
 #include <stdint.h>
-#include <sys/system_properties.h>
+#include <api/system_properties.h>
 
 #include "platform/bionic/macros.h"
 

@@ -30,7 +30,7 @@
 
 #include <stdint.h>
 #include <sys/param.h>
-#include <sys/system_properties.h>
+#include <api/system_properties.h>
 
 #include "contexts.h"
 #include "contexts_pre_split.h"

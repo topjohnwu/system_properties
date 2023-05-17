@@ -36,7 +36,7 @@
 #error you should #include <sys/system_properties.h> instead
 #endif
 
-#include <sys/system_properties.h>
+#include <api/system_properties.h>
 
 __BEGIN_DECLS
 

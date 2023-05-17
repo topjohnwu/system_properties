@@ -34,6 +34,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "hacks.h"
+
 __BEGIN_DECLS
 
 typedef struct prop_info prop_info;
