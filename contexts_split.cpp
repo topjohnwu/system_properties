@@ -203,7 +203,7 @@ bool ContextsSplit::MapSerialPropertyArea(bool access_rw, bool* fsetxattr_failed
     serial_prop_area_ =
         prop_area::map_prop_area_rw(filename, "u:object_r:properties_serial:s0", fsetxattr_failed);
   } else {
-    serial_prop_area_ = prop_area::map_prop_area(filename);
+    serial_prop_area_ = prop_area::map_prop_area(filename, &rw_);
   }
   return serial_prop_area_;
 }

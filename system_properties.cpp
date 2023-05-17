@@ -235,6 +235,10 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
     return -1;
   }
 
+  if (!contexts_->rw_) {
+    return -1;
+  }
+
   prop_area* serial_pa = contexts_->GetSerialPropArea();
   if (!serial_pa) {
     return -1;
@@ -281,6 +285,10 @@ int SystemProperties::Add(const char* name, unsigned int namelen, const char* va
   }
 
   if (!initialized_) {
+    return -1;
+  }
+
+  if (!contexts_->rw_) {
     return -1;
   }
 
