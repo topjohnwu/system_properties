@@ -114,6 +114,12 @@ int __system_property_add(const char* __name, unsigned int __name_length, const 
 */
 int __system_property_update(prop_info* __pi, const char* __value, unsigned int __value_length);
 
+/* Delete a system property.
+**
+** Returns 0 on success, -1 if the property area is full.
+*/
+int __system_property_delete(const char *__name, bool __prune);
+
 /* Read the serial number of a system property returned by
 ** __system_property_find.
 **
