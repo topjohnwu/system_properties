@@ -51,7 +51,7 @@ bool ContextNode::Open(bool access_rw, bool* fsetxattr_failed) {
   if (access_rw) {
     pa_ = prop_area::map_prop_area_rw(filename.c_str(), context_, fsetxattr_failed);
   } else {
-    pa_ = prop_area::map_prop_area(filename.c_str());
+    pa_ = prop_area::map_prop_area(filename.c_str(), nullptr);
   }
   lock_.unlock();
   return pa_;

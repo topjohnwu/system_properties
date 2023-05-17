@@ -273,6 +273,10 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   }
   bool have_override = appcompat_override_contexts_ != nullptr;
 
+  if (!contexts_->rw_) {
+    return -1;
+  }
+
   prop_area* serial_pa = contexts_->GetSerialPropArea();
   prop_area* override_serial_pa =
       have_override ? appcompat_override_contexts_->GetSerialPropArea() : nullptr;
@@ -336,6 +340,10 @@ int SystemProperties::Add(const char* name, unsigned int namelen, const char* va
   if (!initialized_) {
     async_safe_format_log(ANDROID_LOG_ERROR, "libc",
                           "__system_property_add failed: properties not initialized");
+    return -1;
+  }
+
+  if (!contexts_->rw_) {
     return -1;
   }
 

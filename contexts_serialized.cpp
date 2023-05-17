@@ -68,7 +68,7 @@ bool ContextsSerialized::MapSerialPropertyArea(bool access_rw, bool* fsetxattr_f
     serial_prop_area_ = prop_area::map_prop_area_rw(
         serial_filename_.c_str(), "u:object_r:properties_serial:s0", fsetxattr_failed);
   } else {
-    serial_prop_area_ = prop_area::map_prop_area(serial_filename_.c_str());
+    serial_prop_area_ = prop_area::map_prop_area(serial_filename_.c_str(), &rw_);
   }
   return serial_prop_area_;
 }
