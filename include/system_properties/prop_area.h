@@ -93,7 +93,7 @@ class prop_area {
  public:
   static prop_area* map_prop_area_rw(const char* filename, const char* context,
                                      bool* fsetxattr_failed);
-  static prop_area* map_prop_area(const char* filename);
+  static prop_area* map_prop_area(const char* filename, bool *is_rw);
   static void unmap_prop_area(prop_area** pa) {
     if (*pa) {
       munmap(*pa, pa_size_);
@@ -139,7 +139,7 @@ class prop_area {
   char* dirty_backup_area() { return data_ + sizeof(prop_trie_node); }
 
  private:
-  static prop_area* map_fd_ro(const int fd);
+  static prop_area* map_fd_ro(const int fd, bool rw);
 
   void* allocate_obj(const size_t size, uint_least32_t* const off);
   prop_trie_node* new_prop_trie_node(const char* name, uint32_t namelen, uint_least32_t* const off);
