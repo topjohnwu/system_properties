@@ -51,6 +51,10 @@ class ContextsPreSplit : public Contexts {
     return pre_split_prop_area_;
   }
 
+  virtual const char* GetContextForName(const char*) override {
+    return "u:object_r:properties_device:s0";
+  }
+
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) override {
     pre_split_prop_area_->foreach (propfn, cookie);
   }
