@@ -89,4 +89,5 @@ class SystemProperties {
 
   bool initialized_;
   char property_filename_[PROP_FILENAME_MAX];
+  int sdk_int_;
 };
