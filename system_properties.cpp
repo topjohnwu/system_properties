@@ -90,6 +90,11 @@ bool SystemProperties::Init(const char* filename) {
       return false;
     }
   }
+  char value[PROP_VALUE_MAX] = {0};
+  if (Get("ro.build.version.sdk", value) < 0) {
+    return false;
+  }
+  sdk_int_ = strtol(value, nullptr, 10);
   initialized_ = true;
   return true;
 }
@@ -250,14 +255,17 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   }
 
   uint32_t serial = atomic_load_explicit(&pi->serial, memory_order_relaxed);
-  unsigned int old_len = SERIAL_VALUE_LEN(serial);
 
-  // The contract with readers is that whenever the dirty bit is set, an undamaged copy
-  // of the pre-dirty value is available in the dirty backup area. The fence ensures
-  // that we publish our dirty area update before allowing readers to see a
-  // dirty serial.
-  memcpy(pa->dirty_backup_area(), pi->value, old_len + 1);
-  atomic_thread_fence(memory_order_release);
+  if (sdk_int_ >= __ANDROID_API_R__) {
+    unsigned int old_len = SERIAL_VALUE_LEN(serial);
+
+    // The contract with readers is that whenever the dirty bit is set, an undamaged copy
+    // of the pre-dirty value is available in the dirty backup area. The fence ensures
+    // that we publish our dirty area update before allowing readers to see a
+    // dirty serial.
+    memcpy(pa->dirty_backup_area(), pi->value, old_len + 1);
+    atomic_thread_fence(memory_order_release);
+  }
   serial |= 1;
   atomic_store_explicit(&pi->serial, serial, memory_order_relaxed);
   strlcpy(pi->value, value, len + 1);
