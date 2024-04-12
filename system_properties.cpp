@@ -296,9 +296,9 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
 
   uint32_t serial = atomic_load_explicit(&pi->serial, memory_order_relaxed);
   serial |= 1;
-  strlcpy(pi->value, value, len + 1);
+  strncpy(pi->value, value, PROP_VALUE_MAX);
   if (have_override) {
-    strlcpy(override_pi->value, value, len + 1);
+    strncpy(override_pi->value, value, PROP_VALUE_MAX);
   }
   // Now the primary value property area is up-to-date. Let readers know that they should
   // look at the property value instead of the backup area.
