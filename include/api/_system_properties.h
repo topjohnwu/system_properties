@@ -62,7 +62,7 @@ __BEGIN_DECLS
 ** This was previously for testing, but now that SystemProperties is its own testable class,
 ** there is never a reason to call this function and its implementation simply returns -1.
 */
-int __system_property_set_filename(const char* __unused __filename);
+int __system_property_set_filename(const char* _Nullable __unused __filename);
 
 /*
 ** Initialize the area to be used to store properties.  Can
