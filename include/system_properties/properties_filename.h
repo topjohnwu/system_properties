@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,46 +28,24 @@
 
 #pragma once
 
-#include "contexts.h"
-#include "prop_area.h"
-#include "prop_info.h"
+#include <stdint.h>
 
-class ContextsPreSplit : public Contexts {
+class PropertiesFilename {
  public:
-  virtual ~ContextsPreSplit() override {
+  PropertiesFilename() = default;
+  PropertiesFilename(const char* dir, const char* file) {
+    if (snprintf(filename_, sizeof(filename_), "%s/%s", dir, file) >=
+        static_cast<int>(sizeof(filename_))) {
+      abort();
+    }
   }
-
-  // We'll never initialize this legacy option as writable, so don't even check the arg.
-  virtual bool Initialize(bool, const char* filename, bool*, bool) override {
-    pre_split_prop_area_ = prop_area::map_prop_area(filename, &rw_);
-    return pre_split_prop_area_ != nullptr;
+  void operator=(const char* value) {
+    if (strlen(value) >= sizeof(filename_)) abort();
+    strcpy(filename_, value);
   }
-
-  virtual prop_area* GetPropAreaForName(const char*) override {
-    return pre_split_prop_area_;
-  }
-
-  virtual prop_area* GetSerialPropArea() override {
-    return pre_split_prop_area_;
-  }
-
-  virtual const char* GetContextForName(const char*) override {
-    return "u:object_r:properties_device:s0";
-  }
-
-  virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) override {
-    pre_split_prop_area_->foreach (propfn, cookie);
-  }
-
-  // This is a no-op for pre-split properties as there is only one property file and it is
-  // accessible by all domains
-  virtual void ResetAccess() override {
-  }
-
-  virtual void FreeAndUnmap() override {
-    prop_area::unmap_prop_area(&pre_split_prop_area_);
-  }
+  const char* c_str() { return filename_; }
 
  private:
-  prop_area* pre_split_prop_area_ = nullptr;
+  // Typically something like "/dev/__properties__/properties_serial".
+  char filename_[128];
 };

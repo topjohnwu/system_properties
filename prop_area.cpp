@@ -164,16 +164,15 @@ void* prop_area::allocate_obj(const size_t size, uint_least32_t* const off) {
   return data_ + *off;
 }
 
-prop_bt* prop_area::new_prop_bt(const char* name, uint32_t namelen, uint_least32_t* const off) {
+prop_trie_node* prop_area::new_prop_trie_node(const char* name, uint32_t namelen,
+                                              uint_least32_t* const off) {
   uint_least32_t new_offset;
-  void* const p = allocate_obj(sizeof(prop_bt) + namelen + 1, &new_offset);
-  if (p != nullptr) {
-    prop_bt* bt = new (p) prop_bt(name, namelen);
-    *off = new_offset;
-    return bt;
-  }
+  void* const p = allocate_obj(sizeof(prop_trie_node) + namelen + 1, &new_offset);
+  if (p == nullptr) return nullptr;
 
-  return nullptr;
+  prop_trie_node* node = new (p) prop_trie_node(name, namelen);
+  *off = new_offset;
+  return node;
 }
 
 prop_info* prop_area::new_prop_info(const char* name, uint32_t namelen, const char* value,
@@ -210,9 +209,9 @@ void* prop_area::to_prop_obj(uint_least32_t off) {
   return (data_ + off);
 }
 
-inline prop_bt* prop_area::to_prop_bt(atomic_uint_least32_t* off_p) {
+inline prop_trie_node* prop_area::to_prop_trie_node(atomic_uint_least32_t* off_p) {
   uint_least32_t off = atomic_load_explicit(off_p, memory_order_consume);
-  return reinterpret_cast<prop_bt*>(to_prop_obj(off));
+  return reinterpret_cast<prop_trie_node*>(to_prop_obj(off));
 }
 
 inline prop_info* prop_area::to_prop_info(atomic_uint_least32_t* off_p) {
@@ -220,8 +219,8 @@ inline prop_info* prop_area::to_prop_info(atomic_uint_least32_t* off_p) {
   return reinterpret_cast<prop_info*>(to_prop_obj(off));
 }
 
-inline prop_bt* prop_area::root_node() {
-  return reinterpret_cast<prop_bt*>(to_prop_obj(0));
+inline prop_trie_node* prop_area::root_node() {
+  return reinterpret_cast<prop_trie_node*>(to_prop_obj(0));
 }
 
 static int cmp_prop_name(const char* one, uint32_t one_len, const char* two, uint32_t two_len) {
@@ -233,9 +232,9 @@ static int cmp_prop_name(const char* one, uint32_t one_len, const char* two, uin
     return strncmp(one, two, one_len);
 }
 
-prop_bt* prop_area::find_prop_bt(prop_bt* const bt, const char* name, uint32_t namelen,
-                                 bool alloc_if_needed) {
-  prop_bt* current = bt;
+prop_trie_node* prop_area::find_prop_trie_node(prop_trie_node* const trie, const char* name,
+                                               uint32_t namelen, bool alloc_if_needed) {
+  prop_trie_node* current = trie;
   while (true) {
     if (!current) {
       return nullptr;
@@ -249,44 +248,44 @@ prop_bt* prop_area::find_prop_bt(prop_bt* const bt, const char* name, uint32_t n
     if (ret < 0) {
       uint_least32_t left_offset = atomic_load_explicit(&current->left, memory_order_relaxed);
       if (left_offset != 0) {
-        current = to_prop_bt(&current->left);
+        current = to_prop_trie_node(&current->left);
       } else {
         if (!alloc_if_needed) {
           return nullptr;
         }
 
         uint_least32_t new_offset;
-        prop_bt* new_bt = new_prop_bt(name, namelen, &new_offset);
-        if (new_bt) {
+        prop_trie_node* new_node = new_prop_trie_node(name, namelen, &new_offset);
+        if (new_node) {
           atomic_store_explicit(&current->left, new_offset, memory_order_release);
         }
-        return new_bt;
+        return new_node;
       }
     } else {
       uint_least32_t right_offset = atomic_load_explicit(&current->right, memory_order_relaxed);
       if (right_offset != 0) {
-        current = to_prop_bt(&current->right);
+        current = to_prop_trie_node(&current->right);
       } else {
         if (!alloc_if_needed) {
           return nullptr;
         }
 
         uint_least32_t new_offset;
-        prop_bt* new_bt = new_prop_bt(name, namelen, &new_offset);
-        if (new_bt) {
+        prop_trie_node* new_node = new_prop_trie_node(name, namelen, &new_offset);
+        if (new_node) {
           atomic_store_explicit(&current->right, new_offset, memory_order_release);
         }
-        return new_bt;
+        return new_node;
       }
     }
   }
 }
 
-prop_bt* prop_area::traverse_trie(prop_bt* const trie, const char* name, bool alloc_if_needed) {
+prop_trie_node* prop_area::traverse_trie(prop_trie_node* const trie, const char* name, bool alloc_if_needed) {
   if (!trie) return nullptr;
 
   const char* remaining_name = name;
-  prop_bt* current = trie;
+  prop_trie_node* current = trie;
   while (true) {
     const char* sep = strchr(remaining_name, '.');
     const bool want_subtree = (sep != nullptr);
@@ -296,13 +295,13 @@ prop_bt* prop_area::traverse_trie(prop_bt* const trie, const char* name, bool al
       return nullptr;
     }
 
-    prop_bt* root = nullptr;
+    prop_trie_node* root = nullptr;
     uint_least32_t children_offset = atomic_load_explicit(&current->children, memory_order_relaxed);
     if (children_offset != 0) {
-      root = to_prop_bt(&current->children);
+      root = to_prop_trie_node(&current->children);
     } else if (alloc_if_needed) {
       uint_least32_t new_offset;
-      root = new_prop_bt(remaining_name, substr_size, &new_offset);
+      root = new_prop_trie_node(remaining_name, substr_size, &new_offset);
       if (root) {
         atomic_store_explicit(&current->children, new_offset, memory_order_release);
       }
@@ -312,7 +311,7 @@ prop_bt* prop_area::traverse_trie(prop_bt* const trie, const char* name, bool al
       return nullptr;
     }
 
-    current = find_prop_bt(root, remaining_name, substr_size, alloc_if_needed);
+    current = find_prop_trie_node(root, remaining_name, substr_size, alloc_if_needed);
     if (!current) {
       return nullptr;
     }
@@ -325,10 +324,10 @@ prop_bt* prop_area::traverse_trie(prop_bt* const trie, const char* name, bool al
   return current;
 }
 
-const prop_info* prop_area::find_property(prop_bt* const trie, const char* name, uint32_t namelen,
-                                          const char* value, uint32_t valuelen,
+const prop_info* prop_area::find_property(prop_trie_node* const trie, const char* name,
+                                          uint32_t namelen, const char* value, uint32_t valuelen,
                                           bool alloc_if_needed) {
-  prop_bt* current = traverse_trie(trie, name, alloc_if_needed);
+  prop_trie_node* current = traverse_trie(trie, name, alloc_if_needed);
   if (!current) return nullptr;
 
   uint_least32_t prop_offset = atomic_load_explicit(&current->prop, memory_order_relaxed);
@@ -347,13 +346,13 @@ const prop_info* prop_area::find_property(prop_bt* const trie, const char* name,
   }
 }
 
-bool prop_area::foreach_property(prop_bt* const trie,
+bool prop_area::foreach_property(prop_trie_node* const trie,
                                  void (*propfn)(const prop_info* pi, void* cookie), void* cookie) {
   if (!trie) return false;
 
   uint_least32_t left_offset = atomic_load_explicit(&trie->left, memory_order_relaxed);
   if (left_offset != 0) {
-    const int err = foreach_property(to_prop_bt(&trie->left), propfn, cookie);
+    const int err = foreach_property(to_prop_trie_node(&trie->left), propfn, cookie);
     if (err < 0) return false;
   }
   uint_least32_t prop_offset = atomic_load_explicit(&trie->prop, memory_order_relaxed);
@@ -364,12 +363,12 @@ bool prop_area::foreach_property(prop_bt* const trie,
   }
   uint_least32_t children_offset = atomic_load_explicit(&trie->children, memory_order_relaxed);
   if (children_offset != 0) {
-    const int err = foreach_property(to_prop_bt(&trie->children), propfn, cookie);
+    const int err = foreach_property(to_prop_trie_node(&trie->children), propfn, cookie);
     if (err < 0) return false;
   }
   uint_least32_t right_offset = atomic_load_explicit(&trie->right, memory_order_relaxed);
   if (right_offset != 0) {
-    const int err = foreach_property(to_prop_bt(&trie->right), propfn, cookie);
+    const int err = foreach_property(to_prop_trie_node(&trie->right), propfn, cookie);
     if (err < 0) return false;
   }
 
@@ -396,24 +395,24 @@ bool prop_area::foreach (void (*propfn)(const prop_info* pi, void* cookie), void
 // DFS through the data structure, remove leaf nodes that do not hold properties, remove
 // them from the trie, then backtrack recursively and remove redundant parent nodes.
 // When this method returns true, detach the node from the parent.
-bool prop_area::prune_trie(prop_bt *const node) {
+bool prop_area::prune_trie(prop_trie_node *const node) {
   bool is_leaf = true;
   if (get_offset(&node->children) != 0) {
-    if (prune_trie(to_prop_bt(&node->children))) {
+    if (prune_trie(to_prop_trie_node(&node->children))) {
       set_offset(&node->children, 0u);
     } else {
       is_leaf = false;
     }
   }
   if (get_offset(&node->left) != 0) {
-    if (prune_trie(to_prop_bt(&node->left))) {
+    if (prune_trie(to_prop_trie_node(&node->left))) {
       set_offset(&node->left, 0u);
     } else {
       is_leaf = false;
     }
   }
   if (get_offset(&node->right) != 0) {
-    if (prune_trie(to_prop_bt(&node->right))) {
+    if (prune_trie(to_prop_trie_node(&node->right))) {
       set_offset(&node->right, 0u);
     } else {
       is_leaf = false;
@@ -431,7 +430,7 @@ bool prop_area::prune_trie(prop_bt *const node) {
 }
 
 bool prop_area::remove(const char *name, bool prune) {
-  prop_bt *node = traverse_trie(root_node(), name, false);
+  prop_trie_node *node = traverse_trie(root_node(), name, false);
   if (!node) return false;
 
   uint_least32_t prop_offset = get_offset(&node->prop);

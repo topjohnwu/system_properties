@@ -20,3 +20,4 @@
 #pragma redefine_extname __system_property_serial __system_property_serial2
 #pragma redefine_extname __system_properties_init __system_properties_init2
 #pragma redefine_extname __system_property_wait_any __system_property_wait_any2
+#pragma redefine_extname __system_properties_zygote_reload __system_properties_zygote_reload2
