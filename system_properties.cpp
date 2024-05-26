@@ -419,21 +419,32 @@ int SystemProperties::Delete(const char *name, bool prune) {
     return -1;
   }
 
+  bool have_override = appcompat_override_contexts_ != nullptr;
+
   prop_area* serial_pa = contexts_->GetSerialPropArea();
+  prop_area* override_serial_pa =
+      have_override ? appcompat_override_contexts_->GetSerialPropArea() : nullptr;
   if (serial_pa == nullptr) {
     return -1;
   }
 
   prop_area* pa = contexts_->GetPropAreaForName(name);
+  prop_area* override_pa =
+      have_override ? appcompat_override_contexts_->GetPropAreaForName(name) : nullptr;
   if (!pa) {
     async_safe_format_log(ANDROID_LOG_ERROR, "libc",
                           "__system_property_delete failed: access denied for \"%s\"", name);
     return -1;
   }
-
-  bool ret = pa->remove(name, prune);
-  if (!ret) {
+  
+  if (!pa->remove(name, prune)) {
     return -1;
+  }
+
+  if (have_override) {
+    if (!override_pa->remove(name, prune)) {
+      return -1;
+    }
   }
 
   // There is only a single mutator, but we want to make sure that
@@ -441,6 +452,11 @@ int SystemProperties::Delete(const char *name, bool prune) {
   atomic_store_explicit(serial_pa->serial(),
                         atomic_load_explicit(serial_pa->serial(), memory_order_relaxed) + 1,
                         memory_order_release);
+  if (have_override) {
+    atomic_store_explicit(override_serial_pa->serial(),
+                          atomic_load_explicit(serial_pa->serial(), memory_order_relaxed) + 1,
+                          memory_order_release);
+  }
   __futex_wake(serial_pa->serial(), INT32_MAX);
   return 0;
 }
