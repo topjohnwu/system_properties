@@ -36,7 +36,7 @@
 #error you should #include <sys/system_properties.h> instead
 #endif
 
-#include <sys/system_properties.h>
+#include <api/system_properties.h>
 
 __BEGIN_DECLS
 
@@ -57,12 +57,6 @@ __BEGIN_DECLS
 #define PROP_ERROR_INVALID_CMD 0x001B
 #define PROP_ERROR_HANDLE_CONTROL_MESSAGE 0x0020
 #define PROP_ERROR_SET_FAILED 0x0024
-
-/*
-** This was previously for testing, but now that SystemProperties is its own testable class,
-** there is never a reason to call this function and its implementation simply returns -1.
-*/
-int __system_property_set_filename(const char* __unused __filename);
 
 /*
 ** Initialize the area to be used to store properties.  Can

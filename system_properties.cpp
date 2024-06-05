@@ -29,7 +29,6 @@
 #include "system_properties/system_properties.h"
 
 #include <errno.h>
-#include <private/android_filesystem_config.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>

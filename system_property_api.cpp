@@ -27,7 +27,7 @@
  */
 
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
-#include <sys/_system_properties.h>
+#include <api/_system_properties.h>
 
 #include <async_safe/CHECK.h>
 #include <system_properties/prop_area.h>
@@ -47,11 +47,6 @@ prop_area* __system_property_area__ = nullptr;
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE
 int __system_properties_init() {
   return system_properties.Init(PROP_DIRNAME) ? 0 : -1;
-}
-
-__BIONIC_WEAK_FOR_NATIVE_BRIDGE
-int __system_property_set_filename(const char*) {
-  return -1;
 }
 
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE

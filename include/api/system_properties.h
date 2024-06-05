@@ -38,6 +38,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "hacks.h"
+
 __BEGIN_DECLS
 
 /** An opaque structure representing a system property. */
