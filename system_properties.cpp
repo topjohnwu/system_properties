@@ -29,7 +29,6 @@
 #include "system_properties/system_properties.h"
 
 #include <errno.h>
-#include <private/android_filesystem_config.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,9 +37,6 @@
 #include <unistd.h>
 
 #include <new>
-
-#include <async_safe/CHECK.h>
-#include <async_safe/log.h>
 
 #include "private/ErrnoRestorer.h"
 #include "private/bionic_futex.h"

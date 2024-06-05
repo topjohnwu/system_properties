@@ -26,9 +26,8 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/system_properties.h>
+#include <api/system_properties.h>
 
-#include <async_safe/CHECK.h>
 #include <system_properties/prop_area.h>
 #include <system_properties/system_properties.h>
 
@@ -46,11 +45,6 @@ prop_area* __system_property_area__ = nullptr;
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE
 int __system_properties_init() {
   return system_properties.Init(PROP_DIRNAME) ? 0 : -1;
-}
-
-__BIONIC_WEAK_FOR_NATIVE_BRIDGE
-int __system_property_set_filename(const char*) {
-  return -1;
 }
 
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE

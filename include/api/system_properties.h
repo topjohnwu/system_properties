@@ -38,6 +38,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "hacks.h"
+
 __BEGIN_DECLS
 
 /** An opaque structure representing a system property. */
@@ -246,12 +248,5 @@ int __system_property_update(prop_info* _Nonnull __pi, const char* _Nonnull __va
 int __system_properties_zygote_reload(void) __INTRODUCED_IN(35);
 #endif /* __BIONIC_AVAILABILITY_GUARD(35) */
 
-
-/**
- * Deprecated: previously for testing, but now that SystemProperties is its own
- * testable class, there is never a reason to call this function and its
- * implementation simply returns -1.
- */
-int __system_property_set_filename(const char* _Nullable __unused __filename);
 
 __END_DECLS

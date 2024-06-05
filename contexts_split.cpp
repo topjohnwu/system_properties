@@ -34,8 +34,6 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include <async_safe/log.h>
-
 #include "system_properties/context_node.h"
 #include "system_properties/system_properties.h"
 

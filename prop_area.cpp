@@ -39,8 +39,6 @@
 
 #include <new>
 
-#include <async_safe/log.h>
-
 #ifdef LARGE_SYSTEM_PROPERTY_NODE
 constexpr size_t PA_SIZE = 1024 * 1024;
 #else

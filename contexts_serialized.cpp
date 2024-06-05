@@ -37,9 +37,6 @@
 
 #include <new>
 
-#include <async_safe/log.h>
-#include <private/android_filesystem_config.h>
-
 #include "system_properties/system_properties.h"
 
 bool ContextsSerialized::InitializeContextNodes() {
