@@ -239,6 +239,13 @@ int __system_property_update(prop_info* _Nonnull __pi, const char* _Nonnull __va
 int __system_property_delete(const char* _Nonnull __name, bool __prune);
 
 /**
+ * Get context of a property.
+ *
+ * Returns the context on success, nullptr if fail.
+ */
+const char* _Nullable __system_property_get_context(const char* _Nonnull __name);
+
+/**
  * Reloads the system properties from disk.
  * Not intended for use by any apps except the Zygote.
  * Should only be called from the main thread.
