@@ -44,6 +44,7 @@ class ContextsSplit : public Contexts {
   virtual prop_area* GetSerialPropArea() override {
     return serial_prop_area_;
   }
+  virtual const char* GetContextForName(const char* name) override;
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) override;
   virtual void ResetAccess() override;
   virtual void FreeAndUnmap() override;

@@ -115,6 +115,13 @@ int __system_property_update(prop_info* _Nonnull __pi, const char* _Nonnull __va
 */
 int __system_property_delete(const char* _Nonnull __name, bool __prune);
 
+
+/* Get context of a property.
+**
+** Returns the context on success, nullptr if fail.
+**/
+const char* _Nullable __system_property_get_context(const char* _Nonnull __name);
+
 /* Read the serial number of a system property returned by
 ** __system_property_find.
 **

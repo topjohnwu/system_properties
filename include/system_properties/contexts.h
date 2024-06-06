@@ -40,6 +40,7 @@ class Contexts {
                           bool load_default_path = false) = 0;
   virtual prop_area* GetPropAreaForName(const char* name) = 0;
   virtual prop_area* GetSerialPropArea() = 0;
+  virtual const char* GetContextForName(const char* name) = 0;
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) = 0;
   virtual void ResetAccess() = 0;
   virtual void FreeAndUnmap() = 0;
