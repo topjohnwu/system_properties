@@ -87,6 +87,11 @@ int __system_property_update(prop_info* pi, const char* value, unsigned int len)
 }
 
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE
+int __system_property_delete(const char* name, bool prune) {
+  return system_properties.Delete(name, prune);
+}
+
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 int __system_property_add(const char* name, unsigned int namelen, const char* value,
                           unsigned int valuelen) {
   return system_properties.Add(name, namelen, value, valuelen);

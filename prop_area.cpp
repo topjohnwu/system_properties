@@ -283,9 +283,8 @@ prop_trie_node* prop_area::find_prop_trie_node(prop_trie_node* const trie, const
   }
 }
 
-const prop_info* prop_area::find_property(prop_trie_node* const trie, const char* name,
-                                          uint32_t namelen, const char* value, uint32_t valuelen,
-                                          bool alloc_if_needed) {
+prop_trie_node* prop_area::traverse_trie(prop_trie_node *const trie, const char *name,
+                                         bool alloc_if_needed) {
   if (!trie) return nullptr;
 
   const char* remaining_name = name;
@@ -324,6 +323,15 @@ const prop_info* prop_area::find_property(prop_trie_node* const trie, const char
 
     remaining_name = sep + 1;
   }
+
+  return current;
+}
+
+const prop_info* prop_area::find_property(prop_trie_node* const trie, const char* name,
+                                          uint32_t namelen, const char* value, uint32_t valuelen,
+                                          bool alloc_if_needed) {
+  prop_trie_node* current = traverse_trie(trie, name, alloc_if_needed);
+  if (!current) return nullptr;
 
   uint_least32_t prop_offset = atomic_load_explicit(&current->prop, memory_order_relaxed);
   if (prop_offset != 0) {
@@ -378,4 +386,72 @@ bool prop_area::add(const char* name, unsigned int namelen, const char* value,
 
 bool prop_area::foreach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) {
   return foreach_property(root_node(), propfn, cookie);
+}
+
+#define get_offset(ptr)        atomic_load_explicit(ptr, memory_order_relaxed)
+#define set_offset(ptr, val)   atomic_store_explicit(ptr, val, memory_order_release)
+
+// After removing a property, it is possible that redundant nodes will appear in the trie.
+// DFS through the data structure, remove leaf nodes that do not hold properties, remove
+// them from the trie, then backtrack recursively and remove redundant parent nodes.
+// When this method returns true, detach the node from the parent.
+bool prop_area::prune_trie(prop_trie_node *const node) {
+  bool is_leaf = true;
+  if (get_offset(&node->children) != 0) {
+    if (prune_trie(to_prop_trie_node(&node->children))) {
+      set_offset(&node->children, 0u);
+    } else {
+      is_leaf = false;
+    }
+  }
+  if (get_offset(&node->left) != 0) {
+    if (prune_trie(to_prop_trie_node(&node->left))) {
+      set_offset(&node->left, 0u);
+    } else {
+      is_leaf = false;
+    }
+  }
+  if (get_offset(&node->right) != 0) {
+    if (prune_trie(to_prop_trie_node(&node->right))) {
+      set_offset(&node->right, 0u);
+    } else {
+      is_leaf = false;
+    }
+  }
+
+  if (is_leaf && get_offset(&node->prop) == 0) {
+    // Wipe the node
+    memset(node->name, 0, node->namelen);
+    memset(node, 0, sizeof(*node));
+    // Then return true to detach the node from parent
+    return true;
+  }
+  return false;
+}
+
+bool prop_area::remove(const char *name, bool prune) {
+  prop_trie_node *node = traverse_trie(root_node(), name, false);
+  if (!node) return false;
+
+  uint_least32_t prop_offset = get_offset(&node->prop);
+  if (prop_offset == 0) return false;
+
+  prop_info *prop = to_prop_info(&node->prop);
+
+  // Detach the property from trie ASAP
+  set_offset(&node->prop, 0u);
+
+  // Then wipe out the property from memory
+  if (prop->is_long()) {
+    char *value = const_cast<char*>(prop->long_value());
+    memset(value, 0, strlen(value));
+  }
+  memset(prop->name, 0, strlen(prop->name));
+  memset(prop, 0, sizeof(*prop));
+
+  if (prune) {
+    prune_trie(root_node());
+  }
+
+  return true;
 }

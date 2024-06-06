@@ -232,6 +232,13 @@ int __system_property_add(const char* _Nonnull __name, unsigned int __name_lengt
 int __system_property_update(prop_info* _Nonnull __pi, const char* _Nonnull __value, unsigned int __value_length);
 
 /**
+ * Delete a system property.
+ *
+ * Returns 0 on success, -1 if the property area is full.
+ */
+int __system_property_delete(const char* _Nonnull __name, bool __prune);
+
+/**
  * Reloads the system properties from disk.
  * Not intended for use by any apps except the Zygote.
  * Should only be called from the main thread.

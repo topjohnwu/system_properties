@@ -404,6 +404,53 @@ int SystemProperties::Add(const char* name, unsigned int namelen, const char* va
   return 0;
 }
 
+int SystemProperties::Delete(const char *name, bool prune) {
+  if (!initialized_) {
+    return -1;
+  }
+
+  if (!contexts_->rw_) {
+    return -1;
+  }
+
+  prop_area* serial_pa = contexts_->GetSerialPropArea();
+  if (serial_pa == nullptr) {
+    return -1;
+  }
+
+  prop_area* pa = contexts_->GetPropAreaForName(name);
+  if (!pa) {
+    return -1;
+  }
+
+  if (!pa->remove(name, prune)) {
+    return -1;
+  }
+
+  if (appcompat_override_contexts_ != nullptr) {
+    bool is_override = is_appcompat_override(name);
+    const char* override_name = name;
+    if (is_override) override_name += strlen(APPCOMPAT_PREFIX);
+    prop_area* other_pa = appcompat_override_contexts_->GetPropAreaForName(override_name);
+    prop_area* other_serial_pa = appcompat_override_contexts_->GetSerialPropArea();
+    CHECK(other_pa && other_serial_pa);
+    if (other_pa->remove(override_name, prune)) {
+      atomic_store_explicit(
+              other_serial_pa->serial(),
+              atomic_load_explicit(other_serial_pa->serial(), memory_order_relaxed) + 1,
+              memory_order_release);
+    }
+  }
+
+  // There is only a single mutator, but we want to make sure that
+  // updates are visible to a reader waiting for the update.
+  atomic_store_explicit(serial_pa->serial(),
+                        atomic_load_explicit(serial_pa->serial(), memory_order_relaxed) + 1,
+                        memory_order_release);
+  __futex_wake(serial_pa->serial(), INT32_MAX);
+  return 0;
+}
+
 uint32_t SystemProperties::WaitAny(uint32_t old_serial) {
   uint32_t new_serial;
   Wait(nullptr, old_serial, &new_serial, nullptr);
