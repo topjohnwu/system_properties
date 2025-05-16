@@ -319,6 +319,15 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   }
   __futex_wake(serial_pa->serial(), INT32_MAX);
 
+  // Now that the serial value has been updated so waits on that serial has been unblocked,
+  // we restore the serial number back to the original value to hide traces of modification.
+  atomic_thread_fence(memory_order_release);
+  new_serial = (len << 24) | ((serial & ~1) & 0xffffff);
+  atomic_store_explicit(&pi->serial, new_serial, memory_order_relaxed);
+  if (have_override) {
+      atomic_store_explicit(&override_pi->serial, new_serial, memory_order_relaxed);
+  }
+
   return 0;
 }
 
