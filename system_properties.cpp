@@ -313,6 +313,7 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   if (have_override) {
     atomic_store_explicit(&override_pi->serial, new_serial, memory_order_relaxed);
   }
+  memset(pa->dirty_backup_area(), '\0', old_len + 1);
   __futex_wake(&pi->serial, INT32_MAX);  // Fence by side effect
   atomic_store_explicit(serial_pa->serial(),
                         atomic_load_explicit(serial_pa->serial(), memory_order_relaxed) + 1,
