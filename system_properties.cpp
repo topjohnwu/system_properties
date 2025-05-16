@@ -324,6 +324,12 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
                           memory_order_release);
   }
   __futex_wake(serial_pa->serial(), INT32_MAX);
+  atomic_thread_fence(memory_order_release);
+  new_serial = (len << 24) | ((serial & ~1) & 0xffffff);
+  atomic_store_explicit(&pi->serial, new_serial, memory_order_relaxed);
+  if (have_override) {
+      atomic_store_explicit(&override_pi->serial, new_serial, memory_order_relaxed);
+  }
 
   return 0;
 }
