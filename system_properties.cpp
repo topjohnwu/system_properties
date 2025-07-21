@@ -186,9 +186,9 @@ uint32_t SystemProperties::ReadMutablePropertyValue(const prop_info* pi, char* v
     serial = new_serial;
     len = SERIAL_VALUE_LEN(serial);
     if (__predict_false(SERIAL_DIRTY(serial))) {
-      // See the comment in the prop_area constructor.
-      prop_area* pa = contexts_->GetPropAreaForName(pi->name);
-      memcpy(value, pa->dirty_backup_area(), len + 1);
+      __futex_wait(const_cast<atomic_uint_least32_t*>(&pi->serial), serial, nullptr);
+      new_serial = load_const_atomic(&pi->serial, memory_order_relaxed);
+      continue;
     } else {
       memcpy(value, pi->value, len + 1);
     }
@@ -291,22 +291,9 @@ int SystemProperties::Update(prop_info* pi, const char* value, unsigned int len)
   auto* override_pi = const_cast<prop_info*>(have_override ? override_pa->find(pi->name) : nullptr);
 
   uint32_t serial = atomic_load_explicit(&pi->serial, memory_order_relaxed);
-  unsigned int old_len = SERIAL_VALUE_LEN(serial);
-
-  // The contract with readers is that whenever the dirty bit is set, an undamaged copy
-  // of the pre-dirty value is available in the dirty backup area. The fence ensures
-  // that we publish our dirty area update before allowing readers to see a
-  // dirty serial.
-  memcpy(pa->dirty_backup_area(), pi->value, old_len + 1);
-  if (have_override) {
-    memcpy(override_pa->dirty_backup_area(), override_pi->value, old_len + 1);
-  }
-  atomic_thread_fence(memory_order_release);
   serial |= 1;
-  atomic_store_explicit(&pi->serial, serial, memory_order_relaxed);
   strlcpy(pi->value, value, len + 1);
   if (have_override) {
-    atomic_store_explicit(&override_pi->serial, serial, memory_order_relaxed);
     strlcpy(override_pi->value, value, len + 1);
   }
   // Now the primary value property area is up-to-date. Let readers know that they should
