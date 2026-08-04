@@ -239,6 +239,20 @@ int __system_property_update(prop_info* _Nonnull __pi, const char* _Nonnull __va
 int __system_property_delete(const char* _Nonnull __name, bool __prune);
 
 /**
+ * Compact the property area to preserve dictionary tree structure after deletions.
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+bool __system_property_compact(void);
+
+/**
+ * Compact the property area for a specific context label.
+ *
+ * Returns true on success, false on failure or if the context was not found.
+ */
+bool __system_property_compact_context(const char* _Nonnull __context);
+
+/**
  * Get context of a property.
  *
  * Returns the context on success, nullptr if fail.

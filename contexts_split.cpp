@@ -356,6 +356,34 @@ void ContextsSplit::ForEach(void (*propfn)(const prop_info* pi, void* cookie), v
   });
 }
 
+bool ContextsSplit::Compact() {
+  bool ret = true;
+  ListForEach(contexts_, [&ret](ContextListNode* l) {
+    ret = ret && l->CheckAccessAndOpen() && l->pa()->compact();
+  });
+  return ret && (!serial_prop_area_ || serial_prop_area_->compact());
+}
+
+bool ContextsSplit::CompactContext(const char* context, bool* found) {
+  bool ret = true;
+  *found = false;
+
+  ListForEach(contexts_, [&ret, found, context](ContextListNode* l) {
+    if (!strcmp(l->context(), context)) {
+      *found = true;
+      ret = ret && l->CheckAccessAndOpen() && l->pa()->compact();
+    }
+  });
+
+  if (!*found && serial_prop_area_ &&
+      !strcmp(context, "u:object_r:properties_serial:s0")) {
+    *found = true;
+    ret = serial_prop_area_->compact();
+  }
+
+  return *found && ret;
+}
+
 void ContextsSplit::ResetAccess() {
   ListForEach(contexts_, [](ContextListNode* l) { l->ResetAccess(); });
 }

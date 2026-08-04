@@ -474,6 +474,55 @@ int SystemProperties::Delete(const char *name, bool prune) {
   return 0;
 }
 
+bool SystemProperties::Compact() {
+  if (!initialized_) {
+    return false;
+  }
+
+  if (!contexts_->rw_) {
+    return false;
+  }
+
+  bool ret = contexts_->Compact();
+  if (appcompat_override_contexts_ != nullptr) {
+    ret &= appcompat_override_contexts_->Compact();
+  }
+
+  return ret;
+}
+
+bool SystemProperties::Compact(const char* context) {
+  if (!initialized_) {
+    return false;
+  }
+
+  if (!contexts_->rw_) {
+    return false;
+  }
+
+  if (context == nullptr || context[0] == '\0') {
+    return Compact();
+  }
+
+  bool found_main = false;
+  bool ret = contexts_->CompactContext(context, &found_main);
+  bool found_any = found_main;
+  if (!found_main) {
+    ret = true;
+  }
+
+  if (appcompat_override_contexts_ != nullptr) {
+    bool found_override = false;
+    bool ret_override = appcompat_override_contexts_->CompactContext(context, &found_override);
+    if (found_override) {
+      found_any = true;
+      ret &= ret_override;
+    }
+  }
+
+  return found_any && ret;
+}
+
 const char* SystemProperties::GetContext(const char* name) {
   if (!initialized_) {
     return nullptr;

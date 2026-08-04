@@ -37,7 +37,9 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <new>
+#include <vector>
 
 #ifdef LARGE_SYSTEM_PROPERTY_NODE
 constexpr size_t PA_SIZE = 1024 * 1024;
@@ -391,6 +393,92 @@ bool prop_area::foreach(void (*propfn)(const prop_info* pi, void* cookie), void*
 #define get_offset(ptr)        atomic_load_explicit(ptr, memory_order_relaxed)
 #define set_offset(ptr, val)   atomic_store_explicit(ptr, val, memory_order_release)
 
+namespace {
+
+struct LiveObject {
+  uint_least32_t old_offset;
+  uint32_t size;
+  uint32_t aligned_size;
+  uint_least32_t new_offset;
+};
+
+struct LongValueRef {
+  uint_least32_t prop_old_offset;
+  uint_least32_t long_old_offset;
+};
+
+inline uint_least32_t ptr_to_offset(const char* base, const void* ptr) {
+  return static_cast<uint_least32_t>(reinterpret_cast<const char*>(ptr) - base);
+}
+
+inline prop_trie_node* offset_to_node(char* base, uint_least32_t off) {
+  return reinterpret_cast<prop_trie_node*>(base + off);
+}
+
+inline prop_info* offset_to_info(char* base, uint_least32_t off) {
+  return reinterpret_cast<prop_info*>(base + off);
+}
+
+void collect_live_objects(char* base, prop_trie_node* node, bool skip_node,
+                          std::vector<LiveObject>& objects,
+                          std::vector<uint_least32_t>& node_offsets,
+                          std::vector<uint_least32_t>& prop_offsets,
+                          std::vector<LongValueRef>& long_refs) {
+  if (!node) return;
+
+  if (!skip_node) {
+    uint_least32_t node_off = ptr_to_offset(base, node);
+    uint32_t node_size = sizeof(prop_trie_node) + node->namelen + 1;
+    objects.push_back({node_off, node_size,
+                       static_cast<uint32_t>(
+                           __builtin_align_up(node_size, sizeof(uint_least32_t))),
+                       0u});
+    node_offsets.push_back(node_off);
+  }
+
+  uint_least32_t prop_off = get_offset(&node->prop);
+  if (prop_off != 0) {
+    prop_info* info = offset_to_info(base, prop_off);
+    uint32_t name_len = strlen(info->name);
+    uint32_t info_size = sizeof(prop_info) + name_len + 1;
+    objects.push_back({prop_off, info_size,
+                       static_cast<uint32_t>(
+                           __builtin_align_up(info_size, sizeof(uint_least32_t))),
+                       0u});
+    prop_offsets.push_back(prop_off);
+
+    if (info->is_long()) {
+      const char* long_val = info->long_value();
+      uint32_t long_len = strlen(long_val);
+      uint_least32_t long_off = ptr_to_offset(base, long_val);
+      uint32_t long_size = long_len + 1;
+      objects.push_back({long_off, long_size,
+                         static_cast<uint32_t>(
+                             __builtin_align_up(long_size, sizeof(uint_least32_t))),
+                         0u});
+      long_refs.push_back({prop_off, long_off});
+    }
+  }
+
+  uint_least32_t left_offset = get_offset(&node->left);
+  if (left_offset != 0) {
+    collect_live_objects(base, offset_to_node(base, left_offset), false, objects,
+                         node_offsets, prop_offsets, long_refs);
+  }
+  uint_least32_t children_offset = get_offset(&node->children);
+  if (children_offset != 0) {
+    collect_live_objects(base, offset_to_node(base, children_offset), false, objects,
+                         node_offsets, prop_offsets, long_refs);
+  }
+  uint_least32_t right_offset = get_offset(&node->right);
+  if (right_offset != 0) {
+    collect_live_objects(base, offset_to_node(base, right_offset), false, objects,
+                         node_offsets, prop_offsets, long_refs);
+  }
+}
+
+}  // namespace
+
 // After removing a property, it is possible that redundant nodes will appear in the trie.
 // DFS through the data structure, remove leaf nodes that do not hold properties, remove
 // them from the trie, then backtrack recursively and remove redundant parent nodes.
@@ -451,6 +539,100 @@ bool prop_area::remove(const char *name, bool prune) {
 
   if (prune) {
     prune_trie(root_node());
+  }
+
+  return true;
+}
+
+bool prop_area::compact() {
+  const uint32_t data_start = sizeof(prop_trie_node) +
+                              __builtin_align_up(PROP_VALUE_MAX, sizeof(uint_least32_t));
+  const uint32_t old_bytes_used = bytes_used_;
+  if (old_bytes_used < data_start) {
+    return false;
+  }
+
+  std::vector<LiveObject> objects;
+  std::vector<uint_least32_t> node_offsets;
+  std::vector<uint_least32_t> prop_offsets;
+  std::vector<LongValueRef> long_refs;
+
+  collect_live_objects(data_, root_node(), true, objects, node_offsets, prop_offsets, long_refs);
+
+  if (objects.empty()) {
+    if (old_bytes_used != data_start) {
+      memset(data_ + data_start, 0, old_bytes_used - data_start);
+      bytes_used_ = data_start;
+    }
+    return true;
+  }
+
+  std::sort(objects.begin(), objects.end(),
+            [](const LiveObject& a, const LiveObject& b) { return a.old_offset < b.old_offset; });
+  std::sort(long_refs.begin(), long_refs.end(),
+            [](const LongValueRef& a, const LongValueRef& b) {
+              return a.prop_old_offset < b.prop_old_offset;
+            });
+
+  uint32_t next = data_start;
+  for (auto& obj : objects) {
+    obj.new_offset = next;
+    next += obj.aligned_size;
+  }
+
+  for (const auto& obj : objects) {
+    if (obj.new_offset != obj.old_offset) {
+      memmove(data_ + obj.new_offset, data_ + obj.old_offset, obj.aligned_size);
+    }
+  }
+
+  if (next < old_bytes_used) {
+    memset(data_ + next, 0, old_bytes_used - next);
+  }
+  bytes_used_ = next;
+
+  auto remap_offset = [&objects](uint_least32_t old_off) -> uint_least32_t {
+    if (old_off == 0) return 0;
+    auto it = std::lower_bound(
+        objects.begin(), objects.end(), old_off,
+        [](const LiveObject& obj, uint_least32_t off) { return obj.old_offset < off; });
+    if (it == objects.end() || it->old_offset != old_off) {
+      return old_off;
+    }
+    return it->new_offset;
+  };
+
+  auto update_node = [&remap_offset](prop_trie_node* node) {
+    uint_least32_t left = get_offset(&node->left);
+    if (left != 0) set_offset(&node->left, remap_offset(left));
+    uint_least32_t right = get_offset(&node->right);
+    if (right != 0) set_offset(&node->right, remap_offset(right));
+    uint_least32_t children = get_offset(&node->children);
+    if (children != 0) set_offset(&node->children, remap_offset(children));
+    uint_least32_t prop = get_offset(&node->prop);
+    if (prop != 0) set_offset(&node->prop, remap_offset(prop));
+  };
+
+  update_node(root_node());
+  for (uint_least32_t old_off : node_offsets) {
+    uint_least32_t new_off = remap_offset(old_off);
+    update_node(offset_to_node(data_, new_off));
+  }
+
+  for (uint_least32_t prop_old_off : prop_offsets) {
+    uint_least32_t prop_new_off = remap_offset(prop_old_off);
+    prop_info* info = offset_to_info(data_, prop_new_off);
+    if (!info->is_long()) continue;
+
+    auto it = std::lower_bound(
+        long_refs.begin(), long_refs.end(), prop_old_off,
+        [](const LongValueRef& ref, uint_least32_t off) { return ref.prop_old_offset < off; });
+    if (it == long_refs.end() || it->prop_old_offset != prop_old_off) {
+      continue;
+    }
+
+    uint_least32_t long_new_off = remap_offset(it->long_old_offset);
+    info->long_property.offset = long_new_off - prop_new_off;
   }
 
   return true;

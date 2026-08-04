@@ -47,6 +47,8 @@ class ContextsSerialized : public Contexts {
   }
   virtual const char* GetContextForName(const char* name) override;
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) override;
+  virtual bool Compact() override;
+  virtual bool CompactContext(const char* context, bool* found) override;
   virtual void ResetAccess() override;
   virtual void FreeAndUnmap() override;
 

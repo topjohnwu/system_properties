@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <string.h>
+
 #include "contexts.h"
 #include "prop_area.h"
 #include "prop_info.h"
@@ -57,6 +59,19 @@ class ContextsPreSplit : public Contexts {
 
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) override {
     pre_split_prop_area_->foreach (propfn, cookie);
+  }
+
+  virtual bool Compact() override {
+    return pre_split_prop_area_->compact();
+  }
+
+  virtual bool CompactContext(const char* context, bool* found) override {
+    if (context && !strcmp(context, GetContextForName(""))) {
+      *found = true;
+      return pre_split_prop_area_->compact();
+    }
+    *found = false;
+    return false;
   }
 
   // This is a no-op for pre-split properties as there is only one property file and it is

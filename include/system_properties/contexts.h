@@ -42,6 +42,8 @@ class Contexts {
   virtual prop_area* GetSerialPropArea() = 0;
   virtual const char* GetContextForName(const char* name) = 0;
   virtual void ForEach(void (*propfn)(const prop_info* pi, void* cookie), void* cookie) = 0;
+  virtual bool Compact() = 0;
+  virtual bool CompactContext(const char* context, bool* found) = 0;
   virtual void ResetAccess() = 0;
   virtual void FreeAndUnmap() = 0;
   bool rw_ = false;

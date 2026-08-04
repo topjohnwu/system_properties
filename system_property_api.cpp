@@ -92,6 +92,16 @@ int __system_property_delete(const char* name, bool prune) {
 }
 
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE
+bool __system_property_compact() {
+  return system_properties.Compact();
+}
+
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
+bool __system_property_compact_context(const char* context) {
+  return system_properties.Compact(context);
+}
+
+__BIONIC_WEAK_FOR_NATIVE_BRIDGE
 const char* __system_property_get_context(const char *name) {
   return system_properties.GetContext(name);
 }

@@ -30,6 +30,7 @@
 
 #include <fcntl.h>
 #include <limits.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -157,6 +158,37 @@ void ContextsSerialized::ForEach(void (*propfn)(const prop_info* pi, void* cooki
       context_nodes_[i].pa()->foreach (propfn, cookie);
     }
   }
+}
+
+bool ContextsSerialized::Compact() {
+  for (size_t i = 0; i < num_context_nodes_; ++i) {
+    if (!context_nodes_[i].CheckAccessAndOpen() || !context_nodes_[i].pa()->compact()) {
+      return false;
+    }
+  }
+  return !serial_prop_area_ || serial_prop_area_->compact();
+}
+
+bool ContextsSerialized::CompactContext(const char* context, bool* found) {
+  bool ret = true;
+  *found = false;
+
+  for (size_t i = 0; i < num_context_nodes_; ++i) {
+    if (!strcmp(context_nodes_[i].context(), context)) {
+      *found = true;
+      if (!context_nodes_[i].CheckAccessAndOpen() || !context_nodes_[i].pa()->compact()) {
+        ret = false;
+      }
+    }
+  }
+
+  if (!*found && serial_prop_area_ &&
+      !strcmp(context, "u:object_r:properties_serial:s0")) {
+    *found = true;
+    ret = serial_prop_area_->compact();
+  }
+
+  return *found && ret;
 }
 
 void ContextsSerialized::ResetAccess() {
